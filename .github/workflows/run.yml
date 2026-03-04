@@ -1,0 +1,28 @@
+name: AutoUpdate
+
+on:
+  schedule:
+    - cron: '0 0 * * *' # 每天自动跑
+  workflow_dispatch:      # 允许你手动点运行
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+      - run: pip install requests
+      - run: python scraper.py
+      - name: Push Change
+        run: |
+          git config --local user.email "bot@github.com"
+          git config --local user.name "ActionBot"
+          git add vod_list.txt
+          git commit -m "update" || exit 0
+          git push
+
