@@ -1,36 +1,50 @@
 import requests
+import re
 
-# 目标地址
-target_url = "https://surrit.com/5866cb77-a476-46b5-a0ad-2e58e55c3958/720p/video.m3u8"
+# 你可以改为分类页或者具体的视频页
+target_url = "https://njavtv.com/cn" 
 output_file = "vod_list.txt"
 
-def fetch_data():
+def fetch_njav_data():
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        'Referer': 'https://missav123.com/'
+        'Referer': 'https://njavtv.com/'
     }
+    
     try:
+        # 1. 先抓取列表页获取所有视频的详情页链接
         response = requests.get(target_url, headers=headers, timeout=15)
-        if response.status_code == 200:
-            lines = response.text.split('\n')
-            results = []
-            count = 1
-            base_url = target_url.rsplit('/', 1)[0]
+        response.encoding = 'utf-8'
+        
+        # 匹配标题和详情页路径
+        items = re.findall(r'href="(/v/[^"]+)" title="([^"]+)"', response.text)
+        
+        results = []
+        
+        # 2. 遍历每个视频页（这里为了演示仅演示前3个，避免GitHub Action运行超时）
+        for link, title in items[:5]:
+            detail_url = f"https://njavtv.com{link}"
+            detail_res = requests.get(detail_url, headers=headers, timeout=10)
             
-            for line in lines:
-                line = line.strip()
-                if line and not line.startswith('#'):
-                    full_path = line if line.startswith('http') else f"{base_url}/{line}"
-                    # 严格遵守你的“分类$地址”范本逻辑
-                    results.append(f"视频切片{count:03d}${full_path}")
-                    count += 1
+            # 3. 在详情页中寻找隐藏的 m3u8 地址
+            # 这里的正则根据你提供的 edge-hls.saawsedge.com 结构进行了匹配优化
+            m3u8_match = re.search(r'https?://[^\s^"]+?\.m3u8', detail_res.text)
             
+            if m3u8_match:
+                m3u8_url = m3u8_match.group(0)
+                # 严格遵守你的范本逻辑：视频文件名$视频链接
+                results.append(f"{title}${m3u8_url}")
+        
+        # 4. 自动保存为 txt
+        if results:
             with open(output_file, "w", encoding="utf-8") as f:
                 f.write("\n".join(results))
-            print("抓取成功！")
+            print(f"成功更新 {len(results)} 条数据")
+        else:
+            print("未提取到有效地址，请检查目标站是否开启了防火墙")
+            
     except Exception as e:
-        print(f"错误: {e}")
+        print(f"运行出错: {e}")
 
 if __name__ == "__main__":
-    fetch_data()
-
+    fetch_njav_data()
